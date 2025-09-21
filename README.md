@@ -14,6 +14,9 @@ _A cozy Pomodoro app built for [Codédex's "September 2025: Vibe Coding Challeng
 ---
 
 ## 🖥️ Demo
-👉 [Live Demo Link] https://teejpixels.github.io/Autumn-Pomodoro/
+👉 https://teejpixels.github.io/Autumn-Pomodoro/
 
 ---
+<img width="1679" height="1049" alt="image" src="https://github.com/user-attachments/assets/127e9948-958b-4c36-bcb7-05c9ecfe356d" />
+
+
