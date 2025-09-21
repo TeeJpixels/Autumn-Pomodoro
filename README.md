@@ -8,7 +8,7 @@ _A cozy Pomodoro app built for [Codédex's "September 2025: Vibe Coding Challeng
 ## ✨ Features
 - 🍁 **Pomodoro Timer** – Stay focused with 25/5 minute cycles.  
 - 📅 **To-Do List** – Check off tasks.  
-- 🎨 **Autumn Vibes** – Warm colors, cozy UI, and seasonal themes.  
+- 🎨 **Autumn Vibes** – Warm colors, cozy UI, and autumn themed  
 - 🎵 **Background Music** – Option to add Spotify embeds for a lo-fi study vibe.  
 
 ---
