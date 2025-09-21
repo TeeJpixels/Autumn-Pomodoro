@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="autumntree.png"/>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autumn Pomodoro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            background-image: url('scenery.png');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: #4b5563; /* Gray-600 */
+        }
+        * {
+            font-family: monospace !important;
+        }
+        .leaf {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            opacity: 0;
+            animation-name: fall;
+            animation-timing-function: linear;
+        }
+
+        @keyframes fall {
+            0% {
+                transform: translateY(-50px) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(110vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+
+    <!-- Leaf animation container -->
+    <div id="leaf-container" class="absolute inset-0 z-0 pointer-events-none"></div>
+
+    <div class="relative z-10 p-8 m-4 max-w-lg w-full bg-white bg-opacity-70 backdrop-blur-sm rounded-3xl shadow-2xl flex flex-col items-center">
+        
+        <!-- Timer Section -->
+        <div class="pomodoro-timer mb-8 w-full">
+            <h1 class="text-4xl font-bold text-center mb-4 text-gray-800">Pomodoro</h1>
+            <div class="flex justify-center items-center space-x-2 mb-4">
+                <button id="pomodoro-btn" class="px-4 py-2 rounded-full font-bold transition-all duration-300 transform hover:scale-105 bg-yellow-600 text-white shadow-lg">25:00</button>
+                <button id="short-break-btn" class="px-4 py-2 rounded-full font-bold transition-all duration-300 transform hover:scale-105 bg-green-600 text-white shadow-lg">5:00</button>
+                <button id="long-break-btn" class="px-4 py-2 rounded-full font-bold transition-all duration-300 transform hover:scale-105 bg-blue-600 text-white shadow-lg">15:00</button>
+            </div>
+            <div id="timer-display" class="text-7xl font-bold text-center text-gray-900 mb-4">25:00</div>
+            <div class="flex justify-center space-x-4">
+                <button id="start-btn" class="px-6 py-2 rounded-full font-bold bg-yellow-500 text-white shadow-md hover:bg-yellow-600 transition-colors duration-300">Start</button>
+                <button id="stop-btn" class="px-6 py-2 rounded-full font-bold bg-red-500 text-white shadow-md hover:bg-red-600 transition-colors duration-300">Stop</button>
+            </div>
+        </div>
+        
+        <!-- To-Do List Section -->
+        <div class="todo-list w-full">
+            <h2 class="text-3xl font-bold text-center mb-4 text-gray-800">To-Do List</h2>
+            <div class="flex mb-4">
+            <input type="text" id="todo-input" class="flex-1 p-3 rounded-l-2xl border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all duration-200" placeholder="Add a new task...">
+            <button id="add-btn" class="px-6 py-3 bg-yellow-500 text-white rounded-r-2xl font-bold hover:bg-yellow-600 transition-colors duration-300">Add</button>
+            </div>
+            <ul id="todo-list" class="space-y-3">
+            <!-- To-Do items will be added here -->
+            </ul>
+        </div>
+
+        <!-- Modal for message box -->
+        <div id="modal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-50 hidden">
+            <div class="bg-white p-8 rounded-xl shadow-2xl max-w-lg w-11/12 mx-4 text-center">
+                <h3 id="modal-title" class="text-2xl font-bold mb-4"></h3>
+                <p id="modal-message" class="text-gray-700 mb-6"></p>
+                <button id="close-modal-btn" class="mt-6 px-4 py-2 rounded-full font-bold bg-yellow-500 text-white hover:bg-yellow-600 transition-colors duration-300">Close</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Extra aesthetic images -->
+    <!--img src="treetrunk.png" alt="Tree Trunk" class="absolute bottom-0 left-0 w-48 opacity-70">
+    <img src="tree2.png" alt="Tree 2" class="absolute bottom-0 right-0 w-48 opacity-70">
+    <img src="tree1.png" alt="Tree 1" class="absolute top-0 left-1/4 w-32 opacity-70"-->
+
+    <script>
+        // Modal Elements
+        const modal = document.getElementById('modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalMessage = document.getElementById('modal-message');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        
+        closeModalBtn.addEventListener('click', () => {
+            modal.classList.add('hidden');
+        });
+
+        // Pomodoro Timer Logic
+        const timerDisplay = document.getElementById('timer-display');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const pomodoroBtn = document.getElementById('pomodoro-btn');
+        const shortBreakBtn = document.getElementById('short-break-btn');
+        const longBreakBtn = document.getElementById('long-break-btn');
+
+        let intervalId;
+        let timeLeftInSeconds = 25 * 60; // Default Pomodoro time
+        let isRunning = false;
+        let currentMode = 'pomodoro';
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeLeftInSeconds / 60);
+            const seconds = timeLeftInSeconds % 60;
+            timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function startTimer() {
+            if (isRunning) return;
+            isRunning = true;
+            intervalId = setInterval(() => {
+                if (timeLeftInSeconds > 0) {
+                    timeLeftInSeconds--;
+                    updateTimerDisplay();
+                } else {
+                    clearInterval(intervalId);
+                    isRunning = false;
+                    showMessage('Time is up!');
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(intervalId);
+            isRunning = false;
+        }
+        
+        function setTime(minutes) {
+            stopTimer();
+            timeLeftInSeconds = minutes * 60;
+            updateTimerDisplay();
+        }
+
+        pomodoroBtn.addEventListener('click', () => {
+            currentMode = 'pomodoro';
+            setTime(25);
+        });
+        shortBreakBtn.addEventListener('click', () => {
+            currentMode = 'short-break';
+            setTime(5);
+        });
+        longBreakBtn.addEventListener('click', () => {
+            currentMode = 'long-break';
+            setTime(15);
+        });
+
+        startBtn.addEventListener('click', startTimer);
+        stopBtn.addEventListener('click', stopTimer);
+        
+        // To-Do List Logic
+        const todoInput = document.getElementById('todo-input');
+        const addBtn = document.getElementById('add-btn');
+        const todoList = document.getElementById('todo-list');
+        
+        addBtn.addEventListener('click', addTodo);
+        todoInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addTodo();
+            }
+        });
+        
+        function addTodo() {
+            const taskText = todoInput.value.trim();
+            if (taskText === '') return;
+            
+            const li = document.createElement('li');
+            li.className = 'flex items-center justify-between p-3 bg-white rounded-xl shadow-md';
+            li.innerHTML = `
+            <span class="flex-1 text-gray-800">${taskText}</span>
+            <div class="flex items-center space-x-2">
+                <button class="delete-btn text-red-500 hover:text-red-700 transition-colors duration-200">
+                <img src="trash.png" alt="Delete" class="h-5 w-5">
+                </button>
+            </div>
+            `;
+            
+            li.querySelector('.delete-btn').addEventListener('click', () => {
+            li.remove();
+            });
+            
+            todoList.appendChild(li);
+            todoInput.value = '';
+        }
+
+        // Leaf Animation Logic
+        const leafContainer = document.getElementById('leaf-container');
+        const leafImages = ['leaf1.png', 'leaf2.png'];
+
+        function createLeaf() {
+            const leaf = document.createElement('div');
+            leaf.className = 'leaf';
+            
+            const randomImage = leafImages[Math.floor(Math.random() * leafImages.length)];
+            leaf.style.backgroundImage = `url('${randomImage}')`;
+            
+            const startX = Math.random() * window.innerWidth;
+            leaf.style.left = `${startX}px`;
+            
+            const animationDuration = 5 + Math.random() * 5; // 5 to 10 seconds
+            leaf.style.animationDuration = `${animationDuration}s`;
+            
+            const delay = Math.random() * 5; // 0 to 5 seconds delay
+            leaf.style.animationDelay = `${delay}s`;
+
+            const size = 20 + Math.random() * 20; // 20px to 40px
+            leaf.style.width = `${size}px`;
+            leaf.style.height = `${size}px`;
+            
+            leafContainer.appendChild(leaf);
+
+            // Remove the leaf after it falls off screen
+            leaf.addEventListener('animationend', () => {
+            leaf.remove();
+            });
+        }
+
+        // Custom time input for Pomodoro timer
+        // Add input and button below timer display
+        const timerSection = document.querySelector('.pomodoro-timer');
+        const customTimeDiv = document.createElement('div');
+        customTimeDiv.className = "flex justify-center items-center space-x-2 mb-4";
+        customTimeDiv.innerHTML = `
+            <input type="number" id="custom-minutes" min="1" max="120" class="w-20 p-2 rounded-lg border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all duration-200" placeholder="Min">
+            <button id="set-custom-btn" class="px-4 py-2 rounded-full font-bold bg-gray-700 text-white shadow-md hover:bg-gray-900 transition-colors duration-300">Set</button>
+        `;
+        timerSection.insertBefore(customTimeDiv, timerDisplay);
+
+        const customMinutesInput = document.getElementById('custom-minutes');
+        const setCustomBtn = document.getElementById('set-custom-btn');
+        setCustomBtn.addEventListener('click', () => {
+            const minutes = parseInt(customMinutesInput.value, 10);
+            if (!isNaN(minutes) && minutes > 0 && minutes <= 120) {
+                currentMode = 'custom';
+                setTime(minutes);
+            } else {
+                showMessage('Please enter a valid number of minutes (1-120).');
+            }
+        });
+        customMinutesInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                setCustomBtn.click();
+            }
+        });
+
+        // Add checkmark option to tasks
+        function addTodo() {
+            const taskText = todoInput.value.trim();
+            if (taskText === '') return;
+            
+            const li = document.createElement('li');
+            li.className = 'flex items-center justify-between p-3 bg-white rounded-xl shadow-md';
+            li.innerHTML = `
+            <div class="flex items-center space-x-3 flex-1">
+            <button class="check-btn w-6 h-6 rounded-full border-2 border-gray-400 flex items-center justify-center bg-white transition-colors duration-200 mr-2">
+                <span class="hidden text-green-600">&#10003;</span>
+            </button>
+            <span class="task-text text-gray-800">${taskText}</span>
+            </div>
+            <div class="flex items-center space-x-2">
+            <button class="delete-btn text-red-500 hover:text-red-700 transition-colors duration-200">
+                <img src="trash.png" alt="Delete" class="h-5 w-5">
+            </button>
+            </div>
+            `;
+            
+            // Checkmark logic
+            const checkBtn = li.querySelector('.check-btn');
+            const checkIcon = checkBtn.querySelector('span');
+            const taskSpan = li.querySelector('.task-text');
+            checkBtn.addEventListener('click', () => {
+            checkIcon.classList.toggle('hidden');
+            taskSpan.classList.toggle('line-through');
+            taskSpan.classList.toggle('text-gray-400');
+            });
+
+            li.querySelector('.delete-btn').addEventListener('click', () => {
+            li.remove();
+            });
+            
+            todoList.appendChild(li);
+            todoInput.value = '';
+        }
+        
+        // Continuously create leaves
+        setInterval(createLeaf, 500);
+
+        // Simple message box (replaces `alert()`)
+        function showMessage(message) {
+            const modal = document.getElementById('modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalMessage = document.getElementById('modal-message');
+            modalTitle.textContent = "Heads up!";
+            modalMessage.textContent = message;
+            modal.classList.remove('hidden');
+
+            // Apply dark mode styles
+            if (isDark) {
+            modal.classList.add('bg-gray-800', 'text-white');
+            modalTitle.classList.add('text-white');
+            modalMessage.classList.add('text-gray-300');
+            } else {
+            modal.classList.remove('bg-gray-800', 'text-white');
+            modalTitle.classList.remove('text-white');
+            modalMessage.classList.remove('text-gray-300');
+            }
+        }
+    </script>
+</body>
+</html>
+<style>
+    @media (min-width: 640px) {
+        .max-w-lg {
+            max-width: 700px !important;
+        }
+    }
+    @media (min-width: 1024px) {
+        .max-w-lg {
+            max-width: 900px !important;
+        }
+    }
+    .bg-opacity-70 {
+        --tw-bg-opacity: 0.4 !important;
+        background-color: rgba(255,255,255,var(--tw-bg-opacity)) !important;
+    }
+</style>
+<style></style>
+<!-- Dark/Light Mode Toggle Button -->
+<button id="theme-toggle" class="fixed top-6 right-6 z-50 px-4 py-2 rounded-full font-bold bg-gray-800 text-white shadow-lg hover:bg-gray-900 transition-colors duration-300">
+    🌗 Dark Mode
+</button>
+
+<script>
+    const themeToggle = document.getElementById('theme-toggle');
+    let isDark = false;
+
+    function applyTheme() {
+        // Body
+        if (isDark) {
+            document.body.classList.add('bg-gray-900');
+            document.body.classList.remove('bg-white');
+            document.body.style.color = '#f3f4f6';
+            themeToggle.textContent = '🌞 Light Mode';
+
+            themeToggle.className =
+                "fixed top-6 right-6 z-50 px-4 py-2 rounded-full font-bold shadow-lg transition-colors duration-300 bg-white/20 text-white border border-white hover:bg-white/30";
+
+        } else {
+            document.body.classList.remove('bg-gray-900');
+            document.body.classList.add('bg-white');
+            document.body.style.color = '#4b5563';
+            themeToggle.textContent = '🌗 Dark Mode';
+        }
+
+        // Pomodoro & To-Do card dark mode
+        const card = document.querySelector('.relative.z-10');
+        if (card) {
+            if (isDark) {
+            card.classList.add('bg-gray-800', 'bg-opacity-60', 'text-white');
+            card.classList.remove('bg-white', 'bg-opacity-70', 'text-gray-800');
+            // Make all text inside card white except custom minutes input and todo-input
+            card.querySelectorAll('*').forEach(el => {
+                // Exclude the custom minutes input and todo-input
+                if (el.id !== 'custom-minutes' && el.id !== 'todo-input') {
+                el.classList.add('text-white');
+                el.classList.remove('text-gray-800', 'text-gray-900', 'text-gray-700', 'text-gray-600');
+                }
+            });
+            // Ensure todo-input text is black
+            const todoInput = document.getElementById('todo-input');
+            if (todoInput) {
+                todoInput.classList.remove('text-white');
+                todoInput.classList.add('text-black');
+            }
+            } else {
+            card.classList.remove('bg-gray-800', 'bg-opacity-60', 'text-white');
+            card.classList.add('bg-white', 'bg-opacity-70', 'text-gray-800');
+            // Restore text color inside card
+            card.querySelectorAll('*').forEach(el => {
+                el.classList.remove('text-white');
+                el.classList.add('text-gray-800');
+            });
+            // Ensure todo-input text is black in light mode too
+            const todoInput = document.getElementById('todo-input');
+            if (todoInput) {
+                todoInput.classList.remove('text-white');
+                todoInput.classList.add('text-black');
+            }
+            }
+        }
+
+        // Elements with data attributes
+        document.querySelectorAll('[data-light][data-dark]').forEach(el => {
+            const lightClasses = el.getAttribute('data-light').split(' ');
+            const darkClasses = el.getAttribute('data-dark').split(' ');
+
+            if (isDark) {
+                el.classList.remove(...lightClasses);
+                el.classList.add(...darkClasses);
+            } else {
+                el.classList.remove(...darkClasses);
+                el.classList.add(...lightClasses);
+            }
+        });
+
+        // Spotify player dark mode
+        const spotifyPlayer = document.getElementById('spotify-player');
+        if (spotifyPlayer) {
+            if (isDark) {
+                spotifyPlayer.classList.add('bg-gray-800', 'text-white');
+                spotifyPlayer.classList.remove('bg-white', 'text-gray-600');
+                spotifyPlayer.style.backgroundColor = 'rgba(31, 41, 55, 0.4)'; // More transparent dark
+            } else {
+                spotifyPlayer.classList.remove('bg-gray-800', 'text-white');
+                spotifyPlayer.classList.add('bg-white', 'text-gray-600');
+                spotifyPlayer.style.backgroundColor = ''; // Reset to default
+            }
+        }
+    }
+
+    themeToggle.addEventListener('click', () => {
+        isDark = !isDark;
+        applyTheme();
+    });
+
+    // Initialize theme
+    applyTheme();
+</script>
+
+<!-- Spotify Music Player Section -->
+<div class="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+    <button id="spotify-toggle" class="mb-2 px-4 py-2 rounded-full font-bold bg-green-600 text-white shadow-lg hover:bg-green-700 transition-colors duration-300">
+        🎵 Music
+    </button>
+    <div id="spotify-player" class="hidden bg-white bg-opacity-90 backdrop-blur-md rounded-xl shadow-xl p-4">
+        <h3 class="text-lg font-bold mb-2 text-green-700">Spotify Player</h3>
+        <input id="spotify-search" type="text" placeholder="Search songs/playlists..." class="mt-2 w-full border rounded p-2" />
+        <p class="mt-2 text-sm text-gray-600">To play full tracks, please <a href="https://accounts.spotify.com/login" target="_blank" class="text-green-700 underline font-bold">log in with your Spotify account</a>.</p>
+    </div>
+</div>
+<script>
+    const spotifyToggle = document.getElementById('spotify-toggle');
+    const spotifyPlayer = document.getElementById('spotify-player');
+    spotifyToggle.addEventListener('click', () => {
+        spotifyPlayer.classList.toggle('hidden');
+    });
+</script>
+
+<!-- Google Search Button -->
+<div class="fixed top-6 left-6 z-50 ">
+    <a href="https://www.google.com" target="_blank" class="px-4 py-2 rounded-full font-bold bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition-colors duration-300">Google Search</a>
+</div>
+
+<script>
+    const googleSearchBtn = document.querySelector('.fixed.top-6.left-6.z-50 a');
+    googleSearchBtn.addEventListener('click', () => {
+        window.open('https://www.google.com', '_blank');
+    });
+  </script>
+</script>
+
+
+
+<style>
+    @media (min-width: 640px) {
+        .max-w-lg {
+            max-width: 700px !important;
+        }
+    }
+    @media (min-width: 1024px) {
+        .max-w-lg {
+            max-width: 900px !important;
+        }
+    }
+
+
